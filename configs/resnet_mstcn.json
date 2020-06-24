@@ -1,0 +1,11 @@
+{
+    "backbone_type": "resnet",
+    "tcn_dropout": 0.2,
+    "tcn_kernel_size": [
+        3,
+        5,
+        7
+    ],
+    "tcn_num_layers": 4,
+    "width_mult": 1.0
+}
