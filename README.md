@@ -107,10 +107,10 @@ If you find this code useful in your research, please consider to cite the follo
 
 ```bibtex
 @article{ma2020towards,
-  title={Towards practical lipreading with distilled and efficient models},
-  author={Ma, Pingchuan and Martinez, Brais and Petridis, Stavros and Pantic, Maja},
-  journal={arXiv preprint arXiv:2007.06504},
-  year={2020}
+  author       = "Ma, Pingchuan and Martinez, Brais and Petridis, Stavros and Pantic, Maja",
+  title        = "Towards practical lipreading with distilled and efficient models",
+  journal      = "arXiv preprint arXiv:2007.06504",
+  year         = "2020",
 }
 
 @InProceedings{martinez2020lipreading,
