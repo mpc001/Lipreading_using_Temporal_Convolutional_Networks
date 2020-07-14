@@ -17,13 +17,13 @@ def _average_batch(x, lengths, B):
 
 
 class MultiscaleMultibranchTCN(nn.Module):
-    def __init__(self, input_size, num_channels, num_classes, tcn_options, dropout, relu_type):
+    def __init__(self, input_size, num_channels, num_classes, tcn_options, dropout, relu_type, dwpw=False):
         super(MultiscaleMultibranchTCN, self).__init__()
 
         self.kernel_sizes = tcn_options['kernel_size']
         self.num_kernels = len( self.kernel_sizes )
 
-        self.mb_ms_tcn = MultibranchTemporalConvNet(input_size, num_channels, tcn_options, dropout=dropout, relu_type=relu_type)
+        self.mb_ms_tcn = MultibranchTemporalConvNet(input_size, num_channels, tcn_options, dropout=dropout, relu_type=relu_type, dwpw=dwpw)
         self.tcn_output = nn.Linear(num_channels[-1], num_classes)
 
         self.consensus_func = _average_batch
@@ -41,9 +41,9 @@ class TCN(nn.Module):
     __https://arxiv.org/pdf/1803.01271.pdf
     """
 
-    def __init__(self, input_size, num_channels, num_classes, tcn_options, dropout, relu_type):
+    def __init__(self, input_size, num_channels, num_classes, tcn_options, dropout, relu_type, dwpw=False):
         super(TCN, self).__init__()
-        self.tcn_trunk = TemporalConvNet(input_size, num_channels, dropout=dropout, tcn_options=tcn_options, relu_type=relu_type)
+        self.tcn_trunk = TemporalConvNet(input_size, num_channels, dropout=dropout, tcn_options=tcn_options, relu_type=relu_type, dwpw=dwpw)
         self.tcn_output = nn.Linear(num_channels[-1], num_classes)
 
         self.consensus_func = _average_batch
@@ -76,7 +76,7 @@ class Lipreading(nn.Module):
             self.backend_out = 1024 if width_mult != 2.0 else 2048
             self.stage_out_channels = shufflenet.stage_out_channels[-1]
 
-        frontend_relu = nn.PReLU( self.frontend_nout )
+        frontend_relu = nn.PReLU(num_parameters=self.frontend_nout) if relu_type == 'prelu' else nn.ReLU()
         self.frontend3D = nn.Sequential(
                     nn.Conv3d(1, self.frontend_nout, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
                     nn.BatchNorm3d(self.frontend_nout),
@@ -84,11 +84,13 @@ class Lipreading(nn.Module):
                     nn.MaxPool3d( kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)))
         tcn_class = TCN if len(tcn_options['kernel_size']) == 1 else MultiscaleMultibranchTCN
         self.tcn = tcn_class( input_size=self.backend_out,
-                              num_channels=[hidden_dim*len(tcn_options['kernel_size'])]*tcn_options['num_layers'],
+                              num_channels=[hidden_dim*len(tcn_options['kernel_size'])*tcn_options['width_mult']]*tcn_options['num_layers'],
                               num_classes=num_classes,
                               tcn_options=tcn_options,
                               dropout=tcn_options['dropout'],
-                              relu_type=relu_type)
+                              relu_type=relu_type,
+                              dwpw=tcn_options['dwpw'],
+                            )
 
     def forward(self, x, lengths):
         B, C, T, H, W = x.size()

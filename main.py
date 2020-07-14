@@ -30,11 +30,14 @@ def load_args(default_config=None):
     parser.add_argument('--annonation-direc', default=None, help='Loaded data directory')
     # -- model config
     parser.add_argument('--backbone-type', type=str, default='resnet', choices=['resnet', 'shufflenet'], help='Architecture used for backbone')
+    parser.add_argument('--relu-type', type = str, default = 'relu', choices = ['relu','prelu'], help = 'what relu to use' )
     parser.add_argument('--width-mult', type=float, default=1.0, help='Width multiplier for mobilenets and shufflenets')
     # -- TCN config
     parser.add_argument('--tcn-kernel-size', type=int, nargs="+", help='Kernel to be used for the TCN module')
     parser.add_argument('--tcn-num-layers', type=int, default=4, help='Number of layers on the TCN module')
     parser.add_argument('--tcn-dropout', type=float, default=0.2, help='Dropout value for the TCN module')
+    parser.add_argument('--tcn-dwpw', default=False, action='store_true', help='If True, use the depthwise seperable convolution in TCN architecture')
+    parser.add_argument('--tcn-width-mult', type=int, default=1, help='TCN width multiplier')
     # -- train
     parser.add_argument('--batch-size', type=int, default=32, help='Mini-batch size')
     # -- test
@@ -82,14 +85,18 @@ def get_model():
         args_loaded = load_json( args.config_path)
         args.backbone_type = args_loaded['backbone_type']
         args.width_mult = args_loaded['width_mult']
+        args.relu_type = args_loaded['relu_type']
         tcn_options = { 'num_layers': args_loaded['tcn_num_layers'],
                         'kernel_size': args_loaded['tcn_kernel_size'],
                         'dropout': args_loaded['tcn_dropout'],
+                        'dwpw': args_loaded['tcn_dwpw'],
+                        'width_mult': args_loaded['tcn_width_mult'],
                       }
 
     return Lipreading( num_classes=args.num_classes,
                        tcn_options=tcn_options,
                        backbone_type=args.backbone_type,
+                       relu_type=args.relu_type,
                        width_mult=args.width_mult,
                        extract_feats=args.extract_feats).cuda()
 

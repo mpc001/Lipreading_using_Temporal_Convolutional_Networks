@@ -2,7 +2,7 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/lipreading-using-temporal-convolutional/lipreading-on-lip-reading-in-the-wild)](https://paperswithcode.com/sota/lipreading-on-lip-reading-in-the-wild?p=lipreading-using-temporal-convolutional)
 
 ## Authors
-[Brais Martinez](http://braismartinez.org), [Pingchuan Ma](https://mpc001.github.io/), [Stavros Petridis](https://ibug.doc.ic.ac.uk/people/spetridis), [Maja Pantic](https://ibug.doc.ic.ac.uk/people/mpantic).
+[Pingchuan Ma](https://mpc001.github.io/), [Brais Martinez](http://braismartinez.org), [Stavros Petridis](https://ibug.doc.ic.ac.uk/people/spetridis), [Maja Pantic](https://ibug.doc.ic.ac.uk/people/mpantic).
 
 ## Content
 [Deep Lipreading](#deep-lipreading)
@@ -26,11 +26,11 @@
 ## Deep Lipreading
 ### Introduction
 
-This is the respository of [Lipreading using Temporal Convolutional Networks](https://sites.google.com/view/audiovisual-speech-recognition). Our paper can be found [here](https://arxiv.org/abs/2001.08702). In this repository, we provide pre-trained models, network settings for end-to-end visual speech recognition (lipreading). We trained our model on [LRW dataset](http://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrw1.html). The network architecture is based on 3D convolution, ResNet-18 plus MS-TCN.
+This is the respository of [Towards practical lipreading with distilled and efficient models](https://sites.google.com/view/audiovisual-speech-recognition#h.p_f7ihgs_dULaj) and [Lipreading using Temporal Convolutional Networks](https://sites.google.com/view/audiovisual-speech-recognition#h.p_jP6ptilqb75s). In this repository, we provide pre-trained models, network settings for end-to-end visual speech recognition (lipreading). We trained our model on [LRW dataset](http://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrw1.html). The network architecture is based on 3D convolution, ResNet-18 plus MS-TCN.
 
 <div align="center"><img src="doc/pipeline.png" width="640"/></div>
 
-By using this repository, you can achieve a performance of 85.5% on the LRW dataset. This reporsitory also provides a script for feature extraction.
+By using this repository, you can achieve a performance of 87.9% on the LRW dataset. This reporsitory also provides a script for feature extraction.
 
 ### Preprocessing
 
@@ -39,7 +39,7 @@ As described in [our paper](https://arxiv.org/abs/2001.08702), each video sequen
 You can run the pre-processing script provided in the [preprocessing](./preprocessing) folder to extract the mouth ROIs.
 
 <table style="display: inline-table;">  
-<tr><td><img src="doc/demo/original.gif", width=" 144"></td><td><img src="doc/demo/detected.gif" width="144"></td><td><img src="doc/demo/transformed.gif" width="144"></td><td><img src="doc/demo/cropped.gif" width="144"></td></tr>
+<tr><td><img src="doc/demo/original.gif", width="144"></td><td><img src="doc/demo/detected.gif" width="144"></td><td><img src="doc/demo/transformed.gif" width="144"></td><td><img src="doc/demo/cropped.gif" width="144"></td></tr>
 <tr><td>0. Original</td> <td>1. Detection</td> <td>2. Transformation</td> <td>3. Mouth ROIs</td> </tr>
 </table>
 
@@ -91,16 +91,28 @@ CUDA_VISIBLE_DEVICES=0 python main.py --extract-feats \
 ### Model Zoo
 We plan to include more models in the future. We use a sequence of 29-frames with a size of 88 by 88 pixels to compute the FLOPs.
 
-|       Architecture      |   Acc.   | Params (M) | FLOPs (G) | url | size (MB)|
-|:-----------------------:|:--------:|:----------:|:---------:|:---:|:----:|
-| Conv3d+ResNet18+MS-TCN  |   85.5   |    36.4    |   10.31   |[GoogleDrive](https://bit.ly/3ftiLHf) or [BaiduDrive](https://bit.ly/30NDx0j) (key: 88km)|436.7|
-| Conv3d+ShuffleNetv2+TCN |   79.9   |    2.9     |    0.66   |[GoogleDrive](https://bit.ly/2YbktYd) or [BaiduDrive](https://bit.ly/2UQqY0j) (key: a6ht)| 11.8|
+|       Architecture      |   Acc.   | FLOPs (G) | url | size (MB)|
+|:-----------------------:|:--------:|:---------:|:---:|:----:|
+|resnet18_mstcn_adamw_s3        |   87.9   |    10.31  |[GoogleDrive](https://bit.ly/3fo4w6P) or [BaiduDrive](https://bit.ly/2Zi5BaS) (key: bygn) |436.7|
+|resnet18_mstcn                 |   85.5   |    10.31  |[GoogleDrive](https://bit.ly/2OiiQSw) or [BaiduDrive](https://bit.ly/3fhaq9X) (key: qwtm) |436.7|
+|snv1x_tcn2x                    |   84.6   |    1.31   |[GoogleDrive](https://bit.ly/2Zl25wn) or [BaiduDrive](https://bit.ly/326dwtH) (key: f79d) |36.7|
+|snv1x_dsmstcn3x                |   85.3   |    1.26   |[GoogleDrive](https://bit.ly/3ep9W06) or [BaiduDrive](https://bit.ly/3fo3RST) (key: 86s4) |37.5|
+|snv1x_tcn1x                    |   82.7   |    1.12   |[GoogleDrive](https://bit.ly/38OHvri) or [BaiduDrive](https://bit.ly/32b213Z) (key: 3caa) |15.5|
+|snv05x_tcn2x                   |   82.5   |    1.02   |[GoogleDrive](https://bit.ly/3iXLN4f) or [BaiduDrive](https://bit.ly/3h2WDED) (key: ej9e) |33.0|
+|snv05x_tcn1x                   |   79.9   |    0.58   |[GoogleDrive](https://bit.ly/38LGQqL) or [BaiduDrive](https://bit.ly/2OgzsdB) (key: devg) |11.8|
 
 ## Citation
 
 If you find this code useful in your research, please consider to cite the following papers:
 
 ```bibtex
+@article{ma2020towards,
+  title={Towards practical lipreading with distilled and efficient models},
+  author={Ma, Pingchuan and Martinez, Brais and Petridis, Stavros and Pantic, Maja},
+  journal={arXiv preprint arXiv:2007.06504},
+  year={2020}
+}
+
 @InProceedings{martinez2020lipreading,
   author       = "Martinez, Brais and Ma, Pingchuan and Petridis, Stavros and Pantic, Maja",
   title        = "Lipreading using Temporal Convolutional Networks",

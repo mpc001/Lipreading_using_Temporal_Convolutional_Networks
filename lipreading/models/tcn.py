@@ -26,30 +26,44 @@ class Chomp1d(nn.Module):
         
 
 class ConvBatchChompRelu(nn.Module):
-    def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, relu_type):
+    def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, relu_type, dwpw=False):
         super(ConvBatchChompRelu, self).__init__()
-
-        self.conv = nn.Conv1d(n_inputs, n_outputs, kernel_size,
-                                           stride=stride, padding=padding, dilation=dilation)
-        self.batchnorm = nn.BatchNorm1d(n_outputs)
-        self.chomp = Chomp1d(padding,True)
-        if relu_type == 'relu':
-            self.non_lin = nn.ReLU()
-        elif relu_type == 'prelu':
-            self.non_lin = nn.PReLU(num_parameters=n_outputs)
+        self.dwpw = dwpw
+        if dwpw:
+            self.conv = nn.Sequential(
+                # -- dw
+                nn.Conv1d( n_inputs, n_inputs, kernel_size, stride=stride,
+                           padding=padding, dilation=dilation, groups=n_inputs, bias=False),
+                nn.BatchNorm1d(n_inputs),
+                Chomp1d(padding, True),
+                nn.PReLU(num_parameters=n_inputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                # -- pw
+                nn.Conv1d( n_inputs, n_outputs, 1, 1, 0, bias=False),
+                nn.BatchNorm1d(n_outputs),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True)
+            )
+        else:
+            self.conv = nn.Conv1d(n_inputs, n_outputs, kernel_size,
+                                               stride=stride, padding=padding, dilation=dilation)
+            self.batchnorm = nn.BatchNorm1d(n_outputs)
+            self.chomp = Chomp1d(padding,True)
+            self.non_lin = nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU()
 
     def forward(self, x):
-        out = self.conv( x )
-        out = self.batchnorm( out )
-        out = self.chomp( out )
-        return self.non_lin( out )
+        if self.dwpw:
+            return self.conv(x)
+        else:
+            out = self.conv( x )
+            out = self.batchnorm( out )
+            out = self.chomp( out )
+            return self.non_lin( out )
 
 
         
 # --------- MULTI-BRANCH VERSION ---------------
 class MultibranchTemporalBlock(nn.Module):
     def __init__(self, n_inputs, n_outputs, kernel_sizes, stride, dilation, padding, dropout=0.2, 
-                 relu_type = 'relu'):
+                 relu_type = 'relu', dwpw=False):
         super(MultibranchTemporalBlock, self).__init__()
         
         self.kernel_sizes = kernel_sizes
@@ -60,12 +74,12 @@ class MultibranchTemporalBlock(nn.Module):
 
 
         for k_idx,k in enumerate( self.kernel_sizes ):
-            cbcr = ConvBatchChompRelu( n_inputs, self.n_outputs_branch, k, stride, dilation, padding[k_idx], relu_type)
+            cbcr = ConvBatchChompRelu( n_inputs, self.n_outputs_branch, k, stride, dilation, padding[k_idx], relu_type, dwpw=dwpw)
             setattr( self,'cbcr0_{}'.format(k_idx), cbcr )
         self.dropout0 = nn.Dropout(dropout)
         
         for k_idx,k in enumerate( self.kernel_sizes ):
-            cbcr = ConvBatchChompRelu( n_outputs, self.n_outputs_branch, k, stride, dilation, padding[k_idx], relu_type)
+            cbcr = ConvBatchChompRelu( n_outputs, self.n_outputs_branch, k, stride, dilation, padding[k_idx], relu_type, dwpw=dwpw)
             setattr( self,'cbcr1_{}'.format(k_idx), cbcr )
         self.dropout1 = nn.Dropout(dropout)
 
@@ -102,7 +116,7 @@ class MultibranchTemporalBlock(nn.Module):
         return self.relu_final(out1 + res)
 
 class MultibranchTemporalConvNet(nn.Module):
-    def __init__(self, num_inputs, num_channels, tcn_options, dropout=0.2, relu_type='relu'):
+    def __init__(self, num_inputs, num_channels, tcn_options, dropout=0.2, relu_type='relu', dwpw=False):
         super(MultibranchTemporalConvNet, self).__init__()
 
         self.ksizes = tcn_options['kernel_size']
@@ -117,7 +131,8 @@ class MultibranchTemporalConvNet(nn.Module):
 
             padding = [ (s-1)*dilation_size for s in self.ksizes]            
             layers.append( MultibranchTemporalBlock( in_channels, out_channels, self.ksizes, 
-                stride=1, dilation=dilation_size, padding = padding, dropout=dropout, relu_type = relu_type) )
+                stride=1, dilation=dilation_size, padding = padding, dropout=dropout, relu_type = relu_type,
+                dwpw=dwpw) )
 
         self.network = nn.Sequential(*layers)
 
@@ -129,7 +144,7 @@ class MultibranchTemporalConvNet(nn.Module):
 # --------------- STANDARD VERSION (SINGLE BRANCH) ------------------------
 class TemporalBlock(nn.Module):
     def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2, 
-                 symm_chomp = False, no_padding = False, relu_type = 'relu'):
+                 symm_chomp = False, no_padding = False, relu_type = 'relu', dwpw=False):
         super(TemporalBlock, self).__init__()
         
         self.no_padding = no_padding
@@ -137,34 +152,61 @@ class TemporalBlock(nn.Module):
             downsample_chomp_size = 2*padding-4
             padding = 1 # hack-ish thing so that we can use 3 layers
 
-
-        self.conv1 = nn.Conv1d(n_inputs, n_outputs, kernel_size,
-                                           stride=stride, padding=padding, dilation=dilation)
-        self.batchnorm1 = nn.BatchNorm1d(n_outputs)
-        self.chomp1 = Chomp1d(padding,symm_chomp)  if not self.no_padding else None
-        if relu_type == 'relu':
-            self.relu1 = nn.ReLU()
-        elif relu_type == 'prelu':
-            self.relu1 = nn.PReLU(num_parameters=n_outputs)
-        self.dropout1 = nn.Dropout(dropout)
-        
-        self.conv2 = nn.Conv1d(n_outputs, n_outputs, kernel_size,
-                                           stride=stride, padding=padding, dilation=dilation)
-        self.batchnorm2 = nn.BatchNorm1d(n_outputs)
-        self.chomp2 = Chomp1d(padding,symm_chomp) if not self.no_padding else None
-        if relu_type == 'relu':
-            self.relu2 = nn.ReLU()
-        elif relu_type == 'prelu':
-            self.relu2 = nn.PReLU(num_parameters=n_outputs)
-        self.dropout2 = nn.Dropout(dropout)
-        
-  
-        if self.no_padding:
-            self.net = nn.Sequential(self.conv1, self.batchnorm1, self.relu1, self.dropout1,
-                                     self.conv2, self.batchnorm2, self.relu2, self.dropout2)
+        if dwpw:
+            self.net = nn.Sequential(
+                # -- first conv set within block
+                # -- dw
+                nn.Conv1d( n_inputs, n_inputs, kernel_size, stride=stride,
+                           padding=padding, dilation=dilation, groups=n_inputs, bias=False),
+                nn.BatchNorm1d(n_inputs),
+                Chomp1d(padding, True),
+                nn.PReLU(num_parameters=n_inputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                # -- pw
+                nn.Conv1d( n_inputs, n_outputs, 1, 1, 0, bias=False),
+                nn.BatchNorm1d(n_outputs),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                nn.Dropout(dropout),
+                # -- second conv set within block
+                # -- dw
+                nn.Conv1d( n_outputs, n_outputs, kernel_size, stride=stride,
+                           padding=padding, dilation=dilation, groups=n_outputs, bias=False),
+                nn.BatchNorm1d(n_outputs),
+                Chomp1d(padding, True),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                # -- pw
+                nn.Conv1d( n_outputs, n_outputs, 1, 1, 0, bias=False),
+                nn.BatchNorm1d(n_outputs),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                nn.Dropout(dropout),
+            )
         else:
-            self.net = nn.Sequential(self.conv1, self.batchnorm1, self.chomp1, self.relu1, self.dropout1,
-                                     self.conv2, self.batchnorm2, self.chomp2, self.relu2, self.dropout2)
+            self.conv1 = nn.Conv1d(n_inputs, n_outputs, kernel_size,
+                                   stride=stride, padding=padding, dilation=dilation)
+            self.batchnorm1 = nn.BatchNorm1d(n_outputs)
+            self.chomp1 = Chomp1d(padding,symm_chomp)  if not self.no_padding else None
+            if relu_type == 'relu':
+                self.relu1 = nn.ReLU()
+            elif relu_type == 'prelu':
+                self.relu1 = nn.PReLU(num_parameters=n_outputs)
+            self.dropout1 = nn.Dropout(dropout)
+            
+            self.conv2 = nn.Conv1d(n_outputs, n_outputs, kernel_size,
+                                               stride=stride, padding=padding, dilation=dilation)
+            self.batchnorm2 = nn.BatchNorm1d(n_outputs)
+            self.chomp2 = Chomp1d(padding,symm_chomp) if not self.no_padding else None
+            if relu_type == 'relu':
+                self.relu2 = nn.ReLU()
+            elif relu_type == 'prelu':
+                self.relu2 = nn.PReLU(num_parameters=n_outputs)
+            self.dropout2 = nn.Dropout(dropout)
+            
+      
+            if self.no_padding:
+                self.net = nn.Sequential(self.conv1, self.batchnorm1, self.relu1, self.dropout1,
+                                         self.conv2, self.batchnorm2, self.relu2, self.dropout2)
+            else:
+                self.net = nn.Sequential(self.conv1, self.batchnorm1, self.chomp1, self.relu1, self.dropout1,
+                                         self.conv2, self.batchnorm2, self.chomp2, self.relu2, self.dropout2)
 
         self.downsample = nn.Conv1d(n_inputs, n_outputs, 1) if n_inputs != n_outputs else None
         if self.no_padding:
@@ -183,7 +225,7 @@ class TemporalBlock(nn.Module):
 
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, num_inputs, num_channels, tcn_options, dropout=0.2, relu_type='relu'):
+    def __init__(self, num_inputs, num_channels, tcn_options, dropout=0.2, relu_type='relu', dwpw=False):
         super(TemporalConvNet, self).__init__()
         self.ksize = tcn_options['kernel_size'][0] if isinstance(tcn_options['kernel_size'], list) else tcn_options['kernel_size']
         layers = []
@@ -194,7 +236,7 @@ class TemporalConvNet(nn.Module):
             out_channels = num_channels[i]
             layers.append( TemporalBlock(in_channels, out_channels, self.ksize, stride=1, dilation=dilation_size,
                                      padding=(self.ksize-1) * dilation_size, dropout=dropout, symm_chomp = True,
-                                     no_padding = False, relu_type=relu_type) )
+                                     no_padding = False, relu_type=relu_type, dwpw=dwpw) )
             
         self.network = nn.Sequential(*layers)
 
