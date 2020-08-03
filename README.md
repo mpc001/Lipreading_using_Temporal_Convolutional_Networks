@@ -70,7 +70,7 @@ pip install -r requirements.txt
 * To evaluate on LRW dataset:
 
 ```Shell
-CUDA_VISIBLE_DEVICES=0 python main.py --config <MODEL-JSON-PATH> \
+CUDA_VISIBLE_DEVICES=0 python main.py --config-path <MODEL-JSON-PATH> \
                                       --model-path <MODEL-PATH> \
                                       --data-dir <DATA-DIRECTORY>
 ```
@@ -82,7 +82,7 @@ We assume you have cropped the mouth patches and put them into *`<MOUTH-PATCH-PA
 
 ```Shell
 CUDA_VISIBLE_DEVICES=0 python main.py --extract-feats \
-                                      --config <MODEL-JSON-PATH> \
+                                      --config-path <MODEL-JSON-PATH> \
                                       --model-path <MODEL-PATH> \
                                       --mouth-patch-path <MOUTH-PATCH-PATH> \
                                       --mouth-embedding-out-path <OUTPUT-PATH>

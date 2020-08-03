@@ -47,7 +47,7 @@ def load_args(default_config=None):
     parser.add_argument('--mouth-patch-path', type=str, default=None, help='Path to the mouth ROIs, assuming the file is saved as numpy.array')
     parser.add_argument('--mouth-embedding-out-path', type=str, default=None, help='Save mouth embeddings to a specificed path')
     # -- json pathname
-    parser.add_argument('--config-path', type=str, default=None, help='Model configiguration with json format')
+    parser.add_argument('--config-path', type=str, default=None, help='Model configuration with json format')
 
     args = parser.parse_args()
     return args
@@ -81,17 +81,16 @@ def evaluate(model, dset_loader):
 
 
 def get_model():
-    if os.path.exists(args.config_path):
-        args_loaded = load_json( args.config_path)
-        args.backbone_type = args_loaded['backbone_type']
-        args.width_mult = args_loaded['width_mult']
-        args.relu_type = args_loaded['relu_type']
-        tcn_options = { 'num_layers': args_loaded['tcn_num_layers'],
-                        'kernel_size': args_loaded['tcn_kernel_size'],
-                        'dropout': args_loaded['tcn_dropout'],
-                        'dwpw': args_loaded['tcn_dwpw'],
-                        'width_mult': args_loaded['tcn_width_mult'],
-                      }
+    args_loaded = load_json( args.config_path)
+    args.backbone_type = args_loaded['backbone_type']
+    args.width_mult = args_loaded['width_mult']
+    args.relu_type = args_loaded['relu_type']
+    tcn_options = { 'num_layers': args_loaded['tcn_num_layers'],
+                    'kernel_size': args_loaded['tcn_kernel_size'],
+                    'dropout': args_loaded['tcn_dropout'],
+                    'dwpw': args_loaded['tcn_dwpw'],
+                    'width_mult': args_loaded['tcn_width_mult'],
+                  }
 
     return Lipreading( num_classes=args.num_classes,
                        tcn_options=tcn_options,
@@ -102,10 +101,13 @@ def get_model():
 
 
 def main():
+    assert args.config_path.endswith('.json') and os.path.isfile(args.config_path), \
+        "'.json' config path does not exist. Path input: {}".format(args.config_path)
+    assert args.model_path.endswith('.tar') and os.path.isfile(args.model_path), \
+        "'.tar' model path does not exist. Path input: {}".format(args.model_path)
 
     model = get_model()
 
-    assert os.path.isfile(args.model_path), "File path does not exist. Path input: {}".format(args.model_path)
     model.load_state_dict( torch.load(args.model_path)["model_state_dict"], strict=True)
 
     if args.mouth_patch_path:
