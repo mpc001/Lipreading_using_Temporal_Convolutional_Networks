@@ -125,7 +125,7 @@ def landmarks_interpolate(landmarks):
 
 
 lines = open(args.filename_path).read().splitlines()
-lines = list(filter(lambda x: 'test' in x, lines)) if args.testset_only else lines
+lines = list(filter(lambda x: 'test' == x.split('/')[-2], lines)) if args.testset_only else lines
 
 for filename_idx, line in enumerate(lines):
 
@@ -135,6 +135,9 @@ for filename_idx, line in enumerate(lines):
     video_pathname = os.path.join(args.video_direc, filename+'.mp4')
     landmarks_pathname = os.path.join(args.landmark_direc, filename+'.npz')
     dst_pathname = os.path.join( args.save_direc, filename+'.npz')
+
+    assert os.path.isfile(video_pathname), "File does not exist. Path input: {}".format(video_pathname)
+    assert os.path.isfile(landmarks_pathname), "File does not exist. Path input: {}".format(landmarks_pathname)
 
     if os.path.exists(dst_pathname):
         continue
