@@ -2,13 +2,14 @@ import os
 import glob
 import torch
 import random
+import librosa
 import numpy as np
 import sys
 from lipreading.utils import read_txt_lines
 
 
 class MyDataset(object):
-    def __init__(self, data_partition, data_dir, label_fp, annonation_direc=None,
+    def __init__(self, modality, data_partition, data_dir, label_fp, annonation_direc=None,
         preprocessing_func=None, data_suffix='.npz'):
         assert os.path.isfile( label_fp ), "File path provided for the labels does not exist. Path iput: {}".format(label_fp)
         self._data_partition = data_partition
@@ -18,7 +19,7 @@ class MyDataset(object):
         self._label_fp = label_fp
         self._annonation_direc = annonation_direc
 
-        self.fps = 25
+        self.fps = 25 if modality == "video" else 16000
         self.is_var_length = True
         self.label_idx = -3
 
@@ -63,11 +64,13 @@ class MyDataset(object):
         if not dir_fp:
             return
 
-        # get npy/npz files
+        # get npy/npz/mp4 files
         search_str_npz = os.path.join(dir_fp, '*', self._data_partition, '*.npz')
         search_str_npy = os.path.join(dir_fp, '*', self._data_partition, '*.npy')
+        search_str_mp4 = os.path.join(dir_fp, '*', self._data_partition, '*.mp4')
         self._data_files.extend( glob.glob( search_str_npz ) )
         self._data_files.extend( glob.glob( search_str_npy ) )
+        self._data_files.extend( glob.glob( search_str_mp4 ) )
 
         # If we are not using the full set of labels, remove examples for labels not used
         self._data_files = [ f for f in self._data_files if f.split('/')[self.label_idx] in self._labels ]
@@ -77,6 +80,8 @@ class MyDataset(object):
         try:
             if filename.endswith('npz'):
                 return np.load(filename)['data']
+            elif filename.endswith('mp4'):
+                return librosa.load(filename, sr=16000)[0][-19456:]
             else:
                 return np.load(filename)
         except IOError:
@@ -124,8 +129,12 @@ def pad_packed_collate(batch):
     if len(batch) > 1:
         data_list, lengths, labels_np = zip(*[(a, a.shape[0], b) for (a, b) in sorted(batch, key=lambda x: x[0].shape[0], reverse=True)])
 
-        max_len, h, w = data_list[0].shape  # since it is sorted, the longest video is the first one
-        data_np = np.zeros(( len(data_list), max_len, h, w))
+        if data_list[0].ndim == 3:
+            max_len, h, w = data_list[0].shape  # since it is sorted, the longest video is the first one
+            data_np = np.zeros(( len(data_list), max_len, h, w))
+        elif data_list[0].ndim == 1:
+            max_len = data_list[0].shape[0]
+            data_np = np.zeros( (len(data_list), max_len))
         for idx in range( len(data_np)):
             data_np[idx][:data_list[idx].shape[0]] = data_list[idx]
         data = torch.FloatTensor(data_np)

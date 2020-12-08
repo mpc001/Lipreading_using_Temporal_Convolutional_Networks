@@ -4,6 +4,10 @@
 ## Authors
 [Pingchuan Ma](https://mpc001.github.io/), [Brais Martinez](http://braismartinez.org), [Stavros Petridis](https://ibug.doc.ic.ac.uk/people/spetridis), [Maja Pantic](https://ibug.doc.ic.ac.uk/people/mpantic).
 
+## Update
+
+`2020-12-08`: We release the audio only model which achieves the testing accuracy of 98.5% on LRW.
+
 ## Content
 [Deep Lipreading](#deep-lipreading)
 - [Introduction](#introduction)
@@ -26,7 +30,7 @@
 ## Deep Lipreading
 ### Introduction
 
-This is the respository of [Towards practical lipreading with distilled and efficient models](https://sites.google.com/view/audiovisual-speech-recognition#h.p_f7ihgs_dULaj) and [Lipreading using Temporal Convolutional Networks](https://sites.google.com/view/audiovisual-speech-recognition#h.p_jP6ptilqb75s). In this repository, we provide pre-trained models, network settings for end-to-end visual speech recognition (lipreading). We trained our model on [LRW dataset](http://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrw1.html). The network architecture is based on 3D convolution, ResNet-18 plus MS-TCN.
+This is the respository of [Towards practical lipreading with distilled and efficient models](https://sites.google.com/view/audiovisual-speech-recognition#h.p_f7ihgs_dULaj) and [Lipreading using Temporal Convolutional Networks](https://sites.google.com/view/audiovisual-speech-recognition#h.p_jP6ptilqb75s). In this repository, we provide pre-trained models, network settings for end-to-end visual speech recognition (lipreading). We trained our model on [LRW](http://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrw1.html). The network architecture is based on 3D convolution, ResNet-18 plus MS-TCN.
 
 <div align="center"><img src="doc/pipeline.png" width="640"/></div>
 
@@ -67,12 +71,21 @@ pip install -r requirements.txt
 
 ### How to test
 
-* To evaluate on LRW dataset:
+* To evaluate the visual-only performance (lipreading) on LRW:
 
 ```Shell
 CUDA_VISIBLE_DEVICES=0 python main.py --config-path <MODEL-JSON-PATH> \
                                       --model-path <MODEL-PATH> \
                                       --data-dir <DATA-DIRECTORY>
+```
+
+* To evaluate the audio-only performance on LRW:
+
+```Shell
+CUDA_VISIBLE_DEVICES=0 python main.py --modality raw_audio \
+                                      --config-path <MODEL-JSON-PATH> \
+                                      --model-path <MODEL-PATH> \
+                                      --data-dir <ORIGINAL-VIDEO-DIRECTORY(*.mp4)>
 ```
 
 ### How to extract 512-dim embeddings
@@ -93,8 +106,9 @@ We plan to include more models in the future. We use a sequence of 29-frames wit
 
 |       Architecture      |   Acc.   | FLOPs (G) | url | size (MB)|
 |:-----------------------:|:--------:|:---------:|:---:|:----:|
-|resnet18_mstcn_adamw_s3        |   87.9   |    10.31  |[GoogleDrive](https://bit.ly/3fo4w6P) or [BaiduDrive](https://bit.ly/2Zi5BaS) (key: bygn) |436.7|
+|resnet18_mstcn(adamw_s3)       |   87.9   |    10.31  |[GoogleDrive](https://bit.ly/3fo4w6P) or [BaiduDrive](https://bit.ly/2Zi5BaS) (key: bygn) |436.7|
 |resnet18_mstcn                 |   85.5   |    10.31  |[GoogleDrive](https://bit.ly/2OiiQSw) or [BaiduDrive](https://bit.ly/3fhaq9X) (key: qwtm) |436.7|
+|resnet18_mstcn(audio)          |   98.5   |    3.72   |[GoogleDrive](https://bit.ly/3lYIdXO) or [BaiduDrive](https://bit.ly/37Ku5N4) (key: c5c3) |332.6|
 |snv1x_tcn2x                    |   84.6   |    1.31   |[GoogleDrive](https://bit.ly/2Zl25wn) or [BaiduDrive](https://bit.ly/326dwtH) (key: f79d) |36.7|
 |snv1x_dsmstcn3x                |   85.3   |    1.26   |[GoogleDrive](https://bit.ly/3ep9W06) or [BaiduDrive](https://bit.ly/3fo3RST) (key: 86s4) |37.5|
 |snv1x_tcn1x                    |   82.7   |    1.12   |[GoogleDrive](https://bit.ly/38OHvri) or [BaiduDrive](https://bit.ly/32b213Z) (key: 3caa) |15.5|

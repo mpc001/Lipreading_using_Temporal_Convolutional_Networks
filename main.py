@@ -14,6 +14,10 @@ from tqdm import tqdm
 import torch
 import torch.nn.functional as F
 
+# -- ignore the warninig from librosa
+import warnings
+warnings.filterwarnings('ignore')
+
 from lipreading.utils import load_json, save2npz
 from lipreading.model import Lipreading
 from lipreading.dataloaders import get_data_loaders, get_preprocessing_pipelines
@@ -24,6 +28,7 @@ def load_args(default_config=None):
     # -- dataset config
     parser.add_argument('--dataset', default='lrw', help='dataset selection')
     parser.add_argument('--num-classes', type=int, default=500, help='Number of classes')
+    parser.add_argument('--modality', default='video', choices=['video', 'raw_audio'], help='choose the modality')
     # -- directory
     parser.add_argument('--data-dir', default='./datasets/LRW_h96w96_mouth_crop_gray', help='Loaded data directory')
     parser.add_argument('--label-path', type=str, default='./labels/500WordsSortedList.txt', help='Path to txt file with labels')
@@ -92,7 +97,8 @@ def get_model():
                     'width_mult': args_loaded['tcn_width_mult'],
                   }
 
-    return Lipreading( num_classes=args.num_classes,
+    return Lipreading( modality=args.modality,
+                       num_classes=args.num_classes,
                        tcn_options=tcn_options,
                        backbone_type=args.backbone_type,
                        relu_type=args.relu_type,
