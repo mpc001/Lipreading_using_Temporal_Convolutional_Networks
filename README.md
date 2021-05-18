@@ -120,25 +120,31 @@ We plan to include more models in the future. We use a sequence of 29-frames wit
 If you find this code useful in your research, please consider to cite the following papers:
 
 ```bibtex
-@article{ma2020towards,
-  author       = "Ma, Pingchuan and Martinez, Brais and Petridis, Stavros and Pantic, Maja",
-  title        = "Towards practical lipreading with distilled and efficient models",
-  journal      = "arXiv preprint arXiv:2007.06504",
-  year         = "2020",
+@INPROCEEDINGS{ma2020towards,
+  author={Ma, Pingchuan and Martinez, Brais and Petridis, Stavros and Pantic, Maja},
+  booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  title={Towards Practical Lipreading with Distilled and Efficient Models},
+  year={2021},
+  pages={7608-7612},
+  doi={10.1109/ICASSP39728.2021.9415063}
 }
 
-@InProceedings{martinez2020lipreading,
-  author       = "Martinez, Brais and Ma, Pingchuan and Petridis, Stavros and Pantic, Maja",
-  title        = "Lipreading using Temporal Convolutional Networks",
-  booktitle    = "ICASSP",
-  year         = "2020",
+@INPROCEEDINGS{martinez2020lipreading,
+  author={Martinez, Brais and Ma, Pingchuan and Petridis, Stavros and Pantic, Maja},
+  booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  title={Lipreading Using Temporal Convolutional Networks},
+  year={2020},
+  pages={6319-6323},
+  doi={10.1109/ICASSP40776.2020.9053841}
 }
 
-@InProceedings{petridis2018end,
-  author       = "Petridis, Stavros and Stafylakis, Themos and Ma, Pingchuan and Cai, Feipeng and Tzimiropoulos, Georgios and Pantic, Maja",
-  title        = "End-to-end audiovisual speech recognition",
-  booktitle    = "ICASSP",
-  year         = "2018",
+@INPROCEEDINGS{petridis2018end,
+  author={Petridis, Stavros and Stafylakis, Themos and Ma, Pingehuan and Cai, Feipeng and Tzimiropoulos, Georgios and Pantic, Maja},
+  booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  title={End-to-End Audiovisual Speech Recognition},
+  year={2018},
+  pages={6548-6552},
+  doi={10.1109/ICASSP.2018.8461326}
 }
 ```
 
