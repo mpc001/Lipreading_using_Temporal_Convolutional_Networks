@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import math
+import numpy as np
 from lipreading.models.resnet import ResNet, BasicBlock
 from lipreading.models.resnet1D import ResNet1D, BasicBlock1D
 from lipreading.models.shufflenetv2 import ShuffleNetV2
@@ -101,6 +103,9 @@ class Lipreading(nn.Module):
                               relu_type=relu_type,
                               dwpw=tcn_options['dwpw'],
                             )
+        # -- initialize
+        self._initialize_weights_randomly()
+
 
     def forward(self, x, lengths):
         if self.modality == 'video':
@@ -119,3 +124,30 @@ class Lipreading(nn.Module):
             lengths = [_//640 for _ in lengths]
 
         return x if self.extract_feats else self.tcn(x, lengths, B)
+
+
+    def _initialize_weights_randomly(self):
+
+        use_sqrt = True
+
+        if use_sqrt:
+            def f(n):
+                return math.sqrt( 2.0/float(n) )
+        else:
+            def f(n):
+                return 2.0/float(n)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d) or isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
+                n = np.prod( m.kernel_size ) * m.out_channels
+                m.weight.data.normal_(0, f(n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm3d) or isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.Linear):
+                n = float(m.weight.data[0].nelement())
+                m.weight.data = m.weight.data.normal_(0, f(n))
