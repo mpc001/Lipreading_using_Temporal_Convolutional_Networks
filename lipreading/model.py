@@ -28,7 +28,6 @@ class MultiscaleMultibranchTCN(nn.Module):
 
         self.mb_ms_tcn = MultibranchTemporalConvNet(input_size, num_channels, tcn_options, dropout=dropout, relu_type=relu_type, dwpw=dwpw)
         self.tcn_output = nn.Linear(num_channels[-1], num_classes)
-
         self.consensus_func = _average_batch
 
     def forward(self, x, lengths, B):
@@ -36,7 +35,7 @@ class MultiscaleMultibranchTCN(nn.Module):
         xtrans = x.transpose(1, 2)
         out = self.mb_ms_tcn(xtrans)
         out = self.consensus_func( out, lengths, B )
-        return self.tcn_output(out)
+        return out
 
 
 class TCN(nn.Module):
@@ -47,7 +46,6 @@ class TCN(nn.Module):
     def __init__(self, input_size, num_channels, num_classes, tcn_options, dropout, relu_type, dwpw=False):
         super(TCN, self).__init__()
         self.tcn_trunk = TemporalConvNet(input_size, num_channels, dropout=dropout, tcn_options=tcn_options, relu_type=relu_type, dwpw=dwpw)
-        self.tcn_output = nn.Linear(num_channels[-1], num_classes)
 
         self.consensus_func = _average_batch
 
@@ -57,16 +55,17 @@ class TCN(nn.Module):
         # x needs to have dimension (N, C, L) in order to be passed into CNN
         x = self.tcn_trunk(x.transpose(1, 2))
         x = self.consensus_func( x, lengths, B )
-        return self.tcn_output(x)
+        return x
 
 
 class Lipreading(nn.Module):
     def __init__( self, modality='video', hidden_dim=256, backbone_type='resnet', num_classes=500,
-                  relu_type='prelu', tcn_options={}, width_mult=1.0, extract_feats=False):
+                  relu_type='prelu', tcn_options={}, width_mult=1.0, extract_feats=False, fusion=False):
         super(Lipreading, self).__init__()
         self.extract_feats = extract_feats
         self.backbone_type = backbone_type
         self.modality = modality
+        self.fusion = fusion
 
         if self.modality == 'raw_audio':
             self.frontend_nout = 1
@@ -93,16 +92,18 @@ class Lipreading(nn.Module):
                         nn.MaxPool3d( kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)))
         else:
             raise NotImplementedError
-
+        
         tcn_class = TCN if len(tcn_options['kernel_size']) == 1 else MultiscaleMultibranchTCN
+        num_channels = [hidden_dim*len(tcn_options['kernel_size'])*tcn_options['width_mult']]*tcn_options['num_layers']
         self.tcn = tcn_class( input_size=self.backend_out,
-                              num_channels=[hidden_dim*len(tcn_options['kernel_size'])*tcn_options['width_mult']]*tcn_options['num_layers'],
+                              num_channels=num_channels,
                               num_classes=num_classes,
                               tcn_options=tcn_options,
                               dropout=tcn_options['dropout'],
                               relu_type=relu_type,
                               dwpw=tcn_options['dwpw'],
                             )
+        self.tcn_output = nn.Linear(num_channels[-1], num_classes)
         # -- initialize
         self._initialize_weights_randomly()
 
@@ -123,7 +124,12 @@ class Lipreading(nn.Module):
             x = x.transpose(1, 2)
             lengths = [_//640 for _ in lengths]
 
-        return x if self.extract_feats else self.tcn(x, lengths, B)
+        if self.extract_feats:
+            return x
+        elif self.fusion:
+            return self.tcn(x, lengths, B)
+        else:
+            return self.tcn_output(self.tcn(x, lengths, B))
 
 
     def _initialize_weights_randomly(self):

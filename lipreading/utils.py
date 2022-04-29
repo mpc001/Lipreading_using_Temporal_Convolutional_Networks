@@ -1,3 +1,4 @@
+from glob import glob
 import os
 import json
 import numpy as np
@@ -104,7 +105,7 @@ class CheckpointSaver:
         checkpoint_fp = os.path.join(self.save_dir, self.checkpoint_fn)
 
         # keep track of best model
-        self.is_best = current_perf > self.current_best
+        self.is_best = current_perf >= self.current_best
         if self.is_best:
             self.current_best = current_perf
             best_fp = os.path.join(self.save_dir, self.best_fn)
@@ -114,7 +115,7 @@ class CheckpointSaver:
         if self.save_best_step:
 
             assert epoch >= 0, "Since save_best_step=True, need proper value for 'epoch'. Current: {}".format(epoch)
-            s_idx = sum( epoch >= l for l in lr_steps )
+            s_idx = sum( epoch >= l for l in self.lr_steps )
             self.is_best_for_stage = current_perf > self.best_for_stage[s_idx]
 
             if self.is_best_for_stage:
@@ -147,6 +148,7 @@ def load_model(load_path, model, optimizer = None, allow_size_mismatch = False):
     assert os.path.isfile( load_path ), "Error when loading the model, provided path not found: {}".format( load_path )
     checkpoint = torch.load(load_path)
     loaded_state_dict = checkpoint['model_state_dict']
+
 
     if allow_size_mismatch:
         loaded_sizes = { k: v.shape for k,v in loaded_state_dict.items() }

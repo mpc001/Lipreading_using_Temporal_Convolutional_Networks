@@ -84,7 +84,7 @@ class CenterCrop(object):
         Returns:
             numpy.ndarray: Cropped image.
         """
-        t, h, w = frames.shape
+        t, h, w = frames[...,0].shape
         th, tw = self.size
         delta_w = int(round((w - tw))/2.)
         delta_h = int(round((h - th))/2.)
@@ -106,7 +106,7 @@ class RandomCrop(object):
         Returns:
             numpy.ndarray: Cropped image.
         """
-        t, h, w = frames.shape
+        t, h, w = frames[...,0].shape
         th, tw = self.size
         delta_w = random.randint(0, w-tw)
         delta_h = random.randint(0, h-th)
@@ -131,7 +131,7 @@ class HorizontalFlip(object):
         Returns:
             numpy.ndarray: Cropped image.
         """
-        t, h, w = frames.shape
+        t, h, w = frames[...,0].shape
         if random.random() < self.flip_ratio:
             for index in range(t):
                 frames[index] = cv2.flip(frames[index], 1)

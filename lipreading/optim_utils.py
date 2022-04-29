@@ -18,14 +18,14 @@ class CosineScheduler:
         change_lr_on_optimizer(optimizer, self.lr_ori*reduction_ratio)
 
 
-def get_optimizer(args, optim_policies):
+def get_optimizer(optimizer, optim_policies, lr=3e-4):
     # -- define optimizer
-    if args.optimizer == 'adam':
-        optimizer = optim.Adam(optim_policies, lr=args.lr, weight_decay=1e-4)
-    elif args.optimizer == 'adamw':
-        optimizer = optim.AdamW(optim_policies, lr=args.lr, weight_decay=1e-2)
-    elif args.optimizer == 'sgd':
-        optimizer = optim.SGD(optim_policies, lr=args.lr, weight_decay=1e-4, momentum=0.9)
+    if optimizer == 'adam':
+        optimizer = optim.Adam(optim_policies, lr=lr, weight_decay=1e-4)
+    elif optimizer == 'adamw':
+        optimizer = optim.AdamW(optim_policies, lr=lr, weight_decay=1e-2)
+    elif optimizer == 'sgd':
+        optimizer = optim.SGD(optim_policies, lr=lr, weight_decay=1e-4, momentum=0.9)
     else:
         raise NotImplementedError
     return optimizer
