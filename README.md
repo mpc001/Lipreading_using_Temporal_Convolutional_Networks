@@ -1,5 +1,5 @@
 # Lipreading using Temporal Convolutional Networks
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/towards-practical-lipreading-with-distilled/lipreading-on-lip-reading-in-the-wild)](https://paperswithcode.com/sota/lipreading-on-lip-reading-in-the-wild?p=towards-practical-lipreading-with-distilled)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/training-strategies-for-improved-lip-reading/lipreading-on-lip-reading-in-the-wild)](https://paperswithcode.com/sota/lipreading-on-lip-reading-in-the-wild?p=training-strategies-for-improved-lip-reading)
 
 
 ## Authors
@@ -132,7 +132,7 @@ CUDA_VISIBLE_DEVICES=0 python main.py --modality audio \
 ```
 
 ### How to extract embeddings
-We assume you have cropped the mouth patches and put them into *`<MOUTH-PATCH-PATH>`*. The mouth embeddings will be saved in the *`.npz`* format
+We assume you have cropped the mouth patches and put them into *`<MOUTH-PATCH-PATH>`*. The mouth embeddings will be saved in the *`.npz`* format.
 * To extract 512-D feature embeddings from the top of ResNet-18:
 
 
