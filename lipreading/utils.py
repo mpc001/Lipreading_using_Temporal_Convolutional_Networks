@@ -69,7 +69,7 @@ def save2npz(filename, data=None):
 
 # -- checkpoints
 class CheckpointSaver:
-    def __init__(self, save_dir, checkpoint_fn='ckpt.pth.tar', best_fn='ckpt.best.pth.tar', best_step_fn='ckpt.best.step{}.pth.tar', save_best_step=False, lr_steps=[]):
+    def __init__(self, save_dir, checkpoint_fn='ckpt.pth', best_fn='ckpt.best.pth', best_step_fn='ckpt.best.step{}.pth', save_best_step=False, lr_steps=[]):
         """
         Only mandatory: save_dir
             Can configure naming of checkpoint files through checkpoint_fn, best_fn and best_stage_fn
@@ -183,16 +183,7 @@ def get_logger(args,save_path):
 
 def update_logger_batch( args, logger, dset_loader, batch_idx, running_loss, running_corrects, running_all, batch_time, data_time ):
     perc_epoch = 100. * batch_idx / (len(dset_loader)-1)
-    logger.info('[{:5.0f}/{:5.0f} ({:.0f}%)]\tLoss: {:.4f}\tAcc:{:.4f}\tCost time:{:1.3f} ({:1.3f})s\tData time:{:1.3f} ({:1.3f})\tInstances per second: {:.2f}'.format(
-        running_all,
-        len(dset_loader.dataset),
-        perc_epoch,
-        running_loss / running_all,
-        running_corrects / running_all,
-        batch_time.val, batch_time.avg,
-        data_time.val, data_time.avg,
-        args.batch_size/batch_time.avg ))
-
+    logger.info(f"[{running_all:5.0f}/{len(dset_loader.dataset):5.0f} ({perc_epoch:.0f}%)]\tLoss: {running_loss / running_all:.4f}\tAcc:{running_corrects / running_all:.4f}\tCost time:{batch_time.val:1.3f} ({batch_time.avg:1.3f})s\tData time:{data_time.val:1.3f} ({data_time.avg:1.3f})\tInstances per second: {args.batch_size/batch_time.avg:.2f}")
 
 def get_save_folder( args):
     # create save and log folder

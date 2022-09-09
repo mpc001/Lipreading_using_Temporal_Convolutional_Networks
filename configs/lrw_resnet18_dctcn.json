@@ -1,0 +1,31 @@
+{
+    "backbone_type": "resnet",
+    "relu_type": "swish",
+    "width_mult": 1.0,
+    "densetcn_block_config": [
+        3,
+        3,
+        3,
+        3
+    ],
+    "densetcn_growth_rate_set": [
+        384,
+        384,
+        384,
+        384
+    ],
+    "densetcn_kernel_size_set": [
+        3,
+        5,
+        7
+    ],
+    "densetcn_dilation_size_set": [
+        1,
+        2,
+        5
+    ],
+    "densetcn_reduced_size": 512,
+    "densetcn_se": true,
+    "densetcn_dropout": 0.2,
+    "use_boundary": false
+}

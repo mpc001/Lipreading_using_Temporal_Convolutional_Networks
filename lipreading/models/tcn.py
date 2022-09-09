@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 import pdb
+from lipreading.models.swish import Swish
 
 
 """Implements Temporal Convolutional Network (TCN)
@@ -47,7 +48,7 @@ class ConvBatchChompRelu(nn.Module):
                                                stride=stride, padding=padding, dilation=dilation)
             self.batchnorm = nn.BatchNorm1d(n_outputs)
             self.chomp = Chomp1d(padding,True)
-            self.non_lin = nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU()
+            self.non_lin = nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else Swish() if relu_type == 'swish' else nn.ReLU()
 
     def forward(self, x):
         if self.dwpw:
@@ -91,6 +92,8 @@ class MultibranchTemporalBlock(nn.Module):
             self.relu_final = nn.ReLU()
         elif relu_type == 'prelu':
             self.relu_final = nn.PReLU(num_parameters=n_outputs)
+        elif relu_type == 'swish':
+            self.relu_final = Swish()
 
     def forward(self, x):
 
@@ -160,11 +163,11 @@ class TemporalBlock(nn.Module):
                            padding=padding, dilation=dilation, groups=n_inputs, bias=False),
                 nn.BatchNorm1d(n_inputs),
                 Chomp1d(padding, True),
-                nn.PReLU(num_parameters=n_inputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                nn.PReLU(num_parameters=n_inputs) if relu_type == 'prelu' else Swish() if relu_type == 'swish' else nn.ReLU(inplace=True),
                 # -- pw
                 nn.Conv1d( n_inputs, n_outputs, 1, 1, 0, bias=False),
                 nn.BatchNorm1d(n_outputs),
-                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else Swish() if relu_type == 'swish' else nn.ReLU(inplace=True),
                 nn.Dropout(dropout),
                 # -- second conv set within block
                 # -- dw
@@ -172,11 +175,11 @@ class TemporalBlock(nn.Module):
                            padding=padding, dilation=dilation, groups=n_outputs, bias=False),
                 nn.BatchNorm1d(n_outputs),
                 Chomp1d(padding, True),
-                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else Swish() if relu_type == 'swish' else nn.ReLU(inplace=True),
                 # -- pw
                 nn.Conv1d( n_outputs, n_outputs, 1, 1, 0, bias=False),
                 nn.BatchNorm1d(n_outputs),
-                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else nn.ReLU(inplace=True),
+                nn.PReLU(num_parameters=n_outputs) if relu_type == 'prelu' else Swish() if relu_type == 'swish' else nn.ReLU(inplace=True),
                 nn.Dropout(dropout),
             )
         else:
@@ -188,6 +191,8 @@ class TemporalBlock(nn.Module):
                 self.relu1 = nn.ReLU()
             elif relu_type == 'prelu':
                 self.relu1 = nn.PReLU(num_parameters=n_outputs)
+            elif relu_type == 'swish':
+                self.relu1 = Swish()
             self.dropout1 = nn.Dropout(dropout)
             
             self.conv2 = nn.Conv1d(n_outputs, n_outputs, kernel_size,
@@ -198,6 +203,8 @@ class TemporalBlock(nn.Module):
                 self.relu2 = nn.ReLU()
             elif relu_type == 'prelu':
                 self.relu2 = nn.PReLU(num_parameters=n_outputs)
+            elif relu_type == 'swish':
+                self.relu2 = Swish()
             self.dropout2 = nn.Dropout(dropout)
             
       
@@ -215,6 +222,8 @@ class TemporalBlock(nn.Module):
             self.relu = nn.ReLU()
         elif relu_type == 'prelu':
             self.relu = nn.PReLU(num_parameters=n_outputs)
+        elif relu_type == 'swish':
+            self.relu = Swish()
 
     def forward(self, x):
         out = self.net(x)

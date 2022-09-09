@@ -15,7 +15,9 @@ def get_preprocessing_pipelines(modality):
                                     Normalize( 0.0,255.0 ),
                                     RandomCrop(crop_size),
                                     HorizontalFlip(0.5),
-                                    Normalize(mean, std) ])
+                                    Normalize(mean, std),
+                                    TimeMask(T=0.6*25, n_mask=1)
+                                    ])
 
         preprocessing['val'] = Compose([
                                     Normalize( 0.0,255.0 ),
@@ -24,7 +26,7 @@ def get_preprocessing_pipelines(modality):
 
         preprocessing['test'] = preprocessing['val']
 
-    elif modality == 'raw_audio':
+    elif modality == 'audio':
 
         preprocessing['train'] = Compose([
                                     AddNoise( noise=np.load('./data/babbleNoise_resample_16K.npy')),
@@ -41,6 +43,7 @@ def get_data_loaders(args):
     preprocessing = get_preprocessing_pipelines( args.modality)
 
     # create dataset object for each partition
+    partitions = ['test'] if args.test else ['train', 'val', 'test']
     dsets = {partition: MyDataset(
                 modality=args.modality,
                 data_partition=partition,
@@ -48,8 +51,9 @@ def get_data_loaders(args):
                 label_fp=args.label_path,
                 annonation_direc=args.annonation_direc,
                 preprocessing_func=preprocessing[partition],
-                data_suffix='.npz'
-                ) for partition in ['train', 'val', 'test']}
+                data_suffix='.npz',
+                use_boundary=args.use_boundary,
+                ) for partition in partitions}
     dset_loaders = {x: torch.utils.data.DataLoader(
                         dsets[x],
                         batch_size=args.batch_size,
@@ -57,5 +61,5 @@ def get_data_loaders(args):
                         collate_fn=pad_packed_collate,
                         pin_memory=True,
                         num_workers=args.workers,
-                        worker_init_fn=np.random.seed(1)) for x in ['train', 'val', 'test']}
+                        worker_init_fn=np.random.seed(1)) for x in partitions}
     return dset_loaders

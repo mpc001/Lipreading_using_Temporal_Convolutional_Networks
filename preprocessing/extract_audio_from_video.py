@@ -10,6 +10,8 @@
 import os
 import librosa
 import argparse
+import warnings
+warnings.filterwarnings("ignore")
 
 from utils import *
 
@@ -34,11 +36,11 @@ lines = list(filter(lambda x: 'test' == x.split('/')[-2], lines)) if args.testse
 for filename_idx, line in enumerate(lines):
 
     filename, person_id = line.split(',')
-    print('idx: {} \tProcessing.\t{}'.format(filename_idx, filename))
+    print(f'idx: {filename_idx} \tProcessing.\t{filename}')
     video_pathname = os.path.join(args.video_direc, filename+'.mp4')
     dst_pathname = os.path.join( args.save_direc, filename+'.npz')
 
-    assert os.path.isfile(video_pathname), "File does not exist. Path input: {}".format(video_pathname)
+    assert os.path.isfile(video_pathname), f"File does not exist. Path input: {video_pathname}"
 
-    data = librosa.load(video_pathname, sr=16000)[0][-19456:]
+    data = librosa.load(video_pathname, sr=16000)[0][:18560]
     save2npz(dst_pathname, data=data)

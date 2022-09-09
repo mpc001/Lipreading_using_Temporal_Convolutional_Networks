@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 __all__ = ['Compose', 'Normalize', 'CenterCrop', 'RgbToGray', 'RandomCrop',
-           'HorizontalFlip', 'AddNoise', 'NormalizeUtterance']
+           'HorizontalFlip', 'AddNoise', 'NormalizeUtterance', 'TimeMask']
 
 
 class Compose(object):
@@ -177,3 +177,38 @@ class AddNoise(object):
             factor = (sig_power / noise_clip_power ) / (10**(snr_target / 10.0))
             desired_signal = (signal + noise_clip*np.sqrt(factor)).astype(np.float32)
             return desired_signal
+
+
+class TimeMask():
+    """time mask
+    """
+    def __init__(self, T=6400, n_mask=2, replace_with_zero=False, inplace=False):
+        self.n_mask = n_mask
+        self.T = T
+
+        self.replace_with_zero = replace_with_zero
+        self.inplace = inplace
+
+    def __call__(self, x):
+        if self.inplace:
+            cloned = x
+        else:
+            cloned = x.copy()
+
+        len_raw = cloned.shape[0]
+        ts = np.random.randint(0, self.T, size=(self.n_mask, 2))
+        for t, mask_end in ts:
+            if len_raw - t <= 0:
+                continue
+            t_zero = random.randrange(0, len_raw - t)
+
+            # avoids randrange error if values are equal and range is empty
+            if t_zero == t_zero + t:
+                continue
+
+            mask_end += t_zero
+            if self.replace_with_zero:
+                cloned[t_zero:mask_end] = 0
+            else:
+                cloned[t_zero:mask_end] = cloned.mean()
+        return cloned

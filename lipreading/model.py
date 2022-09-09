@@ -6,6 +6,8 @@ from lipreading.models.resnet import ResNet, BasicBlock
 from lipreading.models.resnet1D import ResNet1D, BasicBlock1D
 from lipreading.models.shufflenetv2 import ShuffleNetV2
 from lipreading.models.tcn import MultibranchTemporalConvNet, TemporalConvNet
+from lipreading.models.densetcn import DenseTemporalConvNet
+from lipreading.models.swish import Swish
 
 
 # -- auxiliary functions
@@ -60,15 +62,40 @@ class TCN(nn.Module):
         return self.tcn_output(x)
 
 
+class DenseTCN(nn.Module):
+    def __init__( self, block_config, growth_rate_set, input_size, reduced_size, num_classes,
+                  kernel_size_set, dilation_size_set,
+                  dropout, relu_type,
+                  squeeze_excitation=False,
+        ):
+        super(DenseTCN, self).__init__()
+
+        num_features = reduced_size + block_config[-1]*growth_rate_set[-1]
+        self.tcn_trunk = DenseTemporalConvNet( block_config, growth_rate_set, input_size, reduced_size,
+                                          kernel_size_set, dilation_size_set,
+                                          dropout=dropout, relu_type=relu_type,
+                                          squeeze_excitation=squeeze_excitation,
+                                          )
+        self.tcn_output = nn.Linear(num_features, num_classes)
+        self.consensus_func = _average_batch
+
+    def forward(self, x, lengths, B):
+        x = self.tcn_trunk(x.transpose(1, 2))
+        x = self.consensus_func( x, lengths, B )
+        return self.tcn_output(x)
+
+
 class Lipreading(nn.Module):
     def __init__( self, modality='video', hidden_dim=256, backbone_type='resnet', num_classes=500,
-                  relu_type='prelu', tcn_options={}, width_mult=1.0, extract_feats=False):
+                  relu_type='prelu', tcn_options={}, densetcn_options={}, width_mult=1.0,
+                  use_boundary=False, extract_feats=False):
         super(Lipreading, self).__init__()
         self.extract_feats = extract_feats
         self.backbone_type = backbone_type
         self.modality = modality
+        self.use_boundary = use_boundary
 
-        if self.modality == 'raw_audio':
+        if self.modality == 'audio':
             self.frontend_nout = 1
             self.backend_out = 512
             self.trunk = ResNet1D(BasicBlock1D, [2, 2, 2, 2], relu_type=relu_type)
@@ -85,7 +112,14 @@ class Lipreading(nn.Module):
                 self.backend_out = 1024 if width_mult != 2.0 else 2048
                 self.stage_out_channels = shufflenet.stage_out_channels[-1]
 
-            frontend_relu = nn.PReLU(num_parameters=self.frontend_nout) if relu_type == 'prelu' else nn.ReLU()
+            # -- frontend3D
+            if relu_type == 'relu':
+                frontend_relu = nn.ReLU(True)
+            elif relu_type == 'prelu':
+                frontend_relu = nn.PReLU( self.frontend_nout )
+            elif relu_type == 'swish':
+                frontend_relu = Swish()
+
             self.frontend3D = nn.Sequential(
                         nn.Conv3d(1, self.frontend_nout, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
                         nn.BatchNorm3d(self.frontend_nout),
@@ -94,34 +128,56 @@ class Lipreading(nn.Module):
         else:
             raise NotImplementedError
 
-        tcn_class = TCN if len(tcn_options['kernel_size']) == 1 else MultiscaleMultibranchTCN
-        self.tcn = tcn_class( input_size=self.backend_out,
-                              num_channels=[hidden_dim*len(tcn_options['kernel_size'])*tcn_options['width_mult']]*tcn_options['num_layers'],
-                              num_classes=num_classes,
-                              tcn_options=tcn_options,
-                              dropout=tcn_options['dropout'],
-                              relu_type=relu_type,
-                              dwpw=tcn_options['dwpw'],
-                            )
+        if tcn_options:
+            tcn_class = TCN if len(tcn_options['kernel_size']) == 1 else MultiscaleMultibranchTCN
+            self.tcn = tcn_class( input_size=self.backend_out,
+                                  num_channels=[hidden_dim*len(tcn_options['kernel_size'])*tcn_options['width_mult']]*tcn_options['num_layers'],
+                                  num_classes=num_classes,
+                                  tcn_options=tcn_options,
+                                  dropout=tcn_options['dropout'],
+                                  relu_type=relu_type,
+                                  dwpw=tcn_options['dwpw'],
+                                )
+        elif densetcn_options:
+            self.tcn =  DenseTCN( block_config=densetcn_options['block_config'],
+                                  growth_rate_set=densetcn_options['growth_rate_set'],
+                                  input_size=self.backend_out if not self.use_boundary else self.backend_out+1,
+                                  reduced_size=densetcn_options['reduced_size'],
+                                  num_classes=num_classes,
+                                  kernel_size_set=densetcn_options['kernel_size_set'],
+                                  dilation_size_set=densetcn_options['dilation_size_set'],
+                                  dropout=densetcn_options['dropout'],
+                                  relu_type=relu_type,
+                                  squeeze_excitation=densetcn_options['squeeze_excitation'],
+                                )
+        else:
+            raise NotImplementedError
+
         # -- initialize
         self._initialize_weights_randomly()
 
 
-    def forward(self, x, lengths):
+    def forward(self, x, lengths, boundaries=None):
         if self.modality == 'video':
             B, C, T, H, W = x.size()
             x = self.frontend3D(x)
             Tnew = x.shape[2]    # outpu should be B x C2 x Tnew x H x W
             x = threeD_to_2D_tensor( x )
             x = self.trunk(x)
+
             if self.backbone_type == 'shufflenet':
                 x = x.view(-1, self.stage_out_channels)
             x = x.view(B, Tnew, x.size(1))
-        elif self.modality == 'raw_audio':
+        elif self.modality == 'audio':
             B, C, T = x.size()
             x = self.trunk(x)
             x = x.transpose(1, 2)
             lengths = [_//640 for _ in lengths]
+
+
+        # -- duration
+        if self.use_boundary:
+            x = torch.cat([x, boundaries], dim=-1)
 
         return x if self.extract_feats else self.tcn(x, lengths, B)
 

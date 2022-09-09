@@ -3,7 +3,7 @@ import math
 import torch.nn as nn
 import pdb
 
-
+from lipreading.models.swish import Swish
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv1d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -31,7 +31,7 @@ class BasicBlock1D(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None, relu_type = 'relu' ):
         super(BasicBlock1D, self).__init__()
 
-        assert relu_type in ['relu','prelu']
+        assert relu_type in ['relu','prelu', 'swish']
 
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm1d(planes)
@@ -43,6 +43,9 @@ class BasicBlock1D(nn.Module):
         elif relu_type == 'prelu':
             self.relu1 = nn.PReLU(num_parameters=planes)
             self.relu2 = nn.PReLU(num_parameters=planes)
+        elif relu_type == 'swish':
+            self.relu1 = Swish()
+            self.relu2 = Swish()
         else:
             raise Exception('relu type not implemented')
         # --------
@@ -85,16 +88,16 @@ class ResNet1D(nn.Module):
             self.relu = nn.ReLU(inplace=True)
         elif relu_type == 'prelu':
             self.relu = nn.PReLU(num_parameters=self.inplanes)
+        elif relu_type == 'swish':
+            self.relu = Swish()
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         # For LRW, we downsample the sampling rate to 25fps
-        self.avgpool = nn.AvgPool1d(kernel_size=21, padding=1)
-        '''
+        # self.avgpool = nn.AvgPool1d(kernel_size=21, padding=1)
         # The following pooling setting is the general configuration
         self.avgpool = nn.AvgPool1d(kernel_size=20, stride=20)
-        '''
 
         # default init
         for m in self.modules():

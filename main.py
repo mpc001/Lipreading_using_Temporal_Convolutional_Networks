@@ -33,7 +33,7 @@ def load_args(default_config=None):
     # -- dataset config
     parser.add_argument('--dataset', default='lrw', help='dataset selection')
     parser.add_argument('--num-classes', type=int, default=500, help='Number of classes')
-    parser.add_argument('--modality', default='video', choices=['video', 'raw_audio'], help='choose the modality')
+    parser.add_argument('--modality', default='video', choices=['video', 'audio'], help='choose the modality')
     # -- directory
     parser.add_argument('--data-dir', default='./datasets/LRW_h96w96_mouth_crop_gray', help='Loaded data directory')
     parser.add_argument('--label-path', type=str, default='./labels/500WordsSortedList.txt', help='Path to txt file with labels')
@@ -48,6 +48,15 @@ def load_args(default_config=None):
     parser.add_argument('--tcn-dropout', type=float, default=0.2, help='Dropout value for the TCN module')
     parser.add_argument('--tcn-dwpw', default=False, action='store_true', help='If True, use the depthwise seperable convolution in TCN architecture')
     parser.add_argument('--tcn-width-mult', type=int, default=1, help='TCN width multiplier')
+    # -- DenseTCN config
+    parser.add_argument('--densetcn-block-config', type=int, nargs = "+", help='number of denselayer for each denseTCN block')
+    parser.add_argument('--densetcn-kernel-size-set', type=int, nargs = "+", help='kernel size set for each denseTCN block')
+    parser.add_argument('--densetcn-dilation-size-set', type=int, nargs = "+", help='dilation size set for each denseTCN block')
+    parser.add_argument('--densetcn-growth-rate-set', type=int, nargs = "+", help='growth rate for DenseTCN')
+    parser.add_argument('--densetcn-dropout', default=0.2, type=float, help='Dropout value for DenseTCN')
+    parser.add_argument('--densetcn-reduced-size', default=256, type=int, help='the feature dim for the output of reduce layer')
+    parser.add_argument('--densetcn-se', default = False, action='store_true', help='If True, enable SE in DenseTCN')
+    parser.add_argument('--densetcn-condense', default = False, action='store_true', help='If True, enable condenseTCN')
     # -- train
     parser.add_argument('--training-mode', default='tcn', help='tcn')
     parser.add_argument('--batch-size', type=int, default=32, help='Mini-batch size')
@@ -73,6 +82,8 @@ def load_args(default_config=None):
     parser.add_argument('--workers', default=8, type=int, help='number of data loading workers')
     # paths
     parser.add_argument('--logging-dir', type=str, default='./train_logs', help = 'path to the directory in which to save the log file')
+    # use boundaries
+    parser.add_argument('--use-boundary', default=False, action='store_true', help='include hard border at the testing stage.')
 
     args = parser.parse_args()
     return args
@@ -104,15 +115,21 @@ def evaluate(model, dset_loader, criterion):
     running_corrects = 0.
 
     with torch.no_grad():
-        for batch_idx, (input, lengths, labels) in enumerate(tqdm(dset_loader)):
-            logits = model(input.unsqueeze(1).cuda(), lengths=lengths)
+        for batch_idx, data in enumerate(tqdm(dset_loader)):
+            if args.use_boundary:
+                input, lengths, labels, boundaries = data
+                boundaries = boundaries.cuda()
+            else:
+                input, lengths, labels = data
+                boundaries = None
+            logits = model(input.unsqueeze(1).cuda(), lengths=lengths, boundaries=boundaries)
             _, preds = torch.max(F.softmax(logits, dim=1).data, dim=1)
             running_corrects += preds.eq(labels.cuda().view_as(preds)).sum().item()
 
             loss = criterion(logits, labels.cuda())
             running_loss += loss.item() * input.size(0)
 
-    print('{} in total\tCR: {}'.format( len(dset_loader.dataset), running_corrects/len(dset_loader.dataset)))
+    print(f"{len(dset_loader.dataset)} in total\tCR: {running_corrects/len(dset_loader.dataset)}")
     return running_corrects/len(dset_loader.dataset), running_loss/len(dset_loader.dataset)
 
 
@@ -123,8 +140,8 @@ def train(model, dset_loader, criterion, epoch, optimizer, logger):
     lr = showLR(optimizer)
 
     logger.info('-' * 10)
-    logger.info('Epoch {}/{}'.format(epoch, args.epochs - 1))
-    logger.info('Current learning rate: {}'.format(lr))
+    logger.info(f"Epoch {epoch}/{args.epochs - 1}")
+    logger.info(f"Current learning rate: {lr}")
 
     model.train()
     running_loss = 0.
@@ -132,7 +149,13 @@ def train(model, dset_loader, criterion, epoch, optimizer, logger):
     running_all = 0.
 
     end = time.time()
-    for batch_idx, (input, lengths, labels) in enumerate(dset_loader):
+    for batch_idx, data in enumerate(dset_loader):
+        if args.use_boundary:
+            input, lengths, labels, boundaries = data
+            boundaries = boundaries.cuda()
+        else:
+            input, lengths, labels = data
+            boundaries = None
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -142,7 +165,7 @@ def train(model, dset_loader, criterion, epoch, optimizer, logger):
 
         optimizer.zero_grad()
 
-        logits = model(input.unsqueeze(1).cuda(), lengths=lengths)
+        logits = model(input.unsqueeze(1).cuda(), lengths=lengths, boundaries=boundaries)
 
         loss_func = mixup_criterion(labels_a, labels_b, lam)
         loss = loss_func(criterion, logits)
@@ -167,23 +190,42 @@ def train(model, dset_loader, criterion, epoch, optimizer, logger):
 
 def get_model_from_json():
     assert args.config_path.endswith('.json') and os.path.isfile(args.config_path), \
-        "'.json' config path does not exist. Path input: {}".format(args.config_path)
+        f"'.json' config path does not exist. Path input: {args.config_path}"
     args_loaded = load_json( args.config_path)
     args.backbone_type = args_loaded['backbone_type']
     args.width_mult = args_loaded['width_mult']
     args.relu_type = args_loaded['relu_type']
-    tcn_options = { 'num_layers': args_loaded['tcn_num_layers'],
-                    'kernel_size': args_loaded['tcn_kernel_size'],
-                    'dropout': args_loaded['tcn_dropout'],
-                    'dwpw': args_loaded['tcn_dwpw'],
-                    'width_mult': args_loaded['tcn_width_mult'],
-                  }
+    args.use_boundary = args_loaded.get("use_boundary", False)
+
+    if args_loaded.get('tcn_num_layers', ''):
+        tcn_options = { 'num_layers': args_loaded['tcn_num_layers'],
+                        'kernel_size': args_loaded['tcn_kernel_size'],
+                        'dropout': args_loaded['tcn_dropout'],
+                        'dwpw': args_loaded['tcn_dwpw'],
+                        'width_mult': args_loaded['tcn_width_mult'],
+                      }
+    else:
+        tcn_options = {}
+    if args_loaded.get('densetcn_block_config', ''):
+        densetcn_options = {'block_config': args_loaded['densetcn_block_config'],
+                            'growth_rate_set': args_loaded['densetcn_growth_rate_set'],
+                            'reduced_size': args_loaded['densetcn_reduced_size'],
+                            'kernel_size_set': args_loaded['densetcn_kernel_size_set'],
+                            'dilation_size_set': args_loaded['densetcn_dilation_size_set'],
+                            'squeeze_excitation': args_loaded['densetcn_se'],
+                            'dropout': args_loaded['densetcn_dropout'],
+                            }
+    else:
+        densetcn_options = {}
+
     model = Lipreading( modality=args.modality,
                         num_classes=args.num_classes,
                         tcn_options=tcn_options,
+                        densetcn_options=densetcn_options,
                         backbone_type=args.backbone_type,
                         relu_type=args.relu_type,
                         width_mult=args.width_mult,
+                        use_boundary=args.use_boundary,
                         extract_feats=args.extract_feats).cuda()
     calculateNorm2(model)
     return model
@@ -193,7 +235,7 @@ def main():
 
     # -- logging
     save_path = get_save_folder( args)
-    print("Model and log being saved in: {}".format(save_path))
+    print(f"Model and log being saved in: {save_path}")
     logger = get_logger(args, save_path)
     ckpt_saver = CheckpointSaver(save_path)
 
@@ -209,18 +251,18 @@ def main():
     scheduler = CosineScheduler(args.lr, args.epochs)
 
     if args.model_path:
-        assert args.model_path.endswith('.tar') and os.path.isfile(args.model_path), \
-            "'.tar' model path does not exist. Path input: {}".format(args.model_path)
+        assert args.model_path.endswith('.pth') and os.path.isfile(args.model_path), \
+            f"'.pth' model path does not exist. Path input: {args.model_path}"
         # resume from checkpoint
         if args.init_epoch > 0:
             model, optimizer, epoch_idx, ckpt_dict = load_model(args.model_path, model, optimizer)
             args.init_epoch = epoch_idx
             ckpt_saver.set_best_from_ckpt(ckpt_dict)
-            logger.info('Model and states have been successfully loaded from {}'.format( args.model_path ))
+            logger.info(f'Model and states have been successfully loaded from {args.model_path}')
         # init from trained model
         else:
             model = load_model(args.model_path, model, allow_size_mismatch=args.allow_size_mismatch)
-            logger.info('Model has been successfully loaded from {}'.format( args.model_path ))
+            logger.info(f'Model has been successfully loaded from {args.model_path}')
         # feature extraction
         if args.mouth_patch_path:
             save2npz( args.mouth_embedding_out_path, data = extract_feats(model).cpu().detach().numpy())
@@ -228,7 +270,7 @@ def main():
         # if test-time, performance on test partition and exit. Otherwise, performance on validation and continue (sanity check for reload)
         if args.test:
             acc_avg_test, loss_avg_test = evaluate(model, dset_loaders['test'], criterion)
-            logger.info('Test-time performance on partition {}: Loss: {:.4f}\tAcc:{:.4f}'.format( 'test', loss_avg_test, acc_avg_test))
+            logger.info(f"Test-time performance on partition {'test'}: Loss: {loss_avg_test:.4f}\tAcc:{acc_avg_test:.4f}")
             return
 
     # -- fix learning rate after loading the ckeckpoint (latency)
@@ -240,7 +282,7 @@ def main():
     while epoch < args.epochs:
         model = train(model, dset_loaders['train'], criterion, epoch, optimizer, logger)
         acc_avg_val, loss_avg_val = evaluate(model, dset_loaders['val'], criterion)
-        logger.info('{} Epoch:\t{:2}\tLoss val: {:.4f}\tAcc val:{:.4f}, LR: {}'.format('val', epoch, loss_avg_val, acc_avg_val, showLR(optimizer)))
+        logger.info(f"{'val'} Epoch:\t{epoch:2}\tLoss val: {loss_avg_val:.4f}\tAcc val:{acc_avg_val:.4f}, LR: {showLR(optimizer)}")
         # -- save checkpoint
         save_dict = {
             'epoch_idx': epoch + 1,
@@ -255,7 +297,7 @@ def main():
     best_fp = os.path.join(ckpt_saver.save_dir, ckpt_saver.best_fn)
     _ = load_model(best_fp, model)
     acc_avg_test, loss_avg_test = evaluate(model, dset_loaders['test'], criterion)
-    logger.info('Test time performance of best epoch: {} (loss: {})'.format(acc_avg_test, loss_avg_test))
+    logger.info(f"Test time performance of best epoch: {acc_avg_test} (loss: {loss_avg_test})")
 
 if __name__ == '__main__':
     main()
