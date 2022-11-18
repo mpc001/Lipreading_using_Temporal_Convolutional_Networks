@@ -199,6 +199,15 @@ If you find this code useful in your research, please consider to cite the follo
     doi={10.1109/ICASSP43922.2022.9746706}
 }
 
+@INPROCEEDINGS{ma2021lip,
+  title={Lip-reading with densely connected temporal convolutional networks},
+  author={Ma, Pingchuan and Wang, Yujiang and Shen, Jie and Petridis, Stavros and Pantic, Maja},
+  booktitle={Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+  pages={2857-2866},
+  year={2021},
+  doi={10.1109/WACV48630.2021.00290}
+}
+
 @INPROCEEDINGS{ma2020towards,
   author={Ma, Pingchuan and Martinez, Brais and Petridis, Stavros and Pantic, Maja},
   booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
