@@ -104,7 +104,7 @@ We call the original LRW directory that includes timestamps (.txt) as *`<ANNONAT
 
 3. Resume from last checkpoint.
 
-You can pass the checkpoint path (.pth) *`<CHECKPOINT-PATH>`* to the variable argument *`--model-path`*, and specify the *`--init-epoch`* to 1 to resume training.
+You can pass the checkpoint path (`.pth` or `.pth.tar`) *`<CHECKPOINT-PATH>`* to the variable argument *`--model-path`*, and specify the *`--init-epoch`* to 1 to resume training.
 
 
 ### How to test

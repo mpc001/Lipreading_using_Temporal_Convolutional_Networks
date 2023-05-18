@@ -251,8 +251,8 @@ def main():
     scheduler = CosineScheduler(args.lr, args.epochs)
 
     if args.model_path:
-        assert args.model_path.endswith('.pth') and os.path.isfile(args.model_path), \
-            f"'.pth' model path does not exist. Path input: {args.model_path}"
+        assert os.path.isfile(args.model_path), \
+            f"Model path does not exist. Path input: {args.model_path}"
         # resume from checkpoint
         if args.init_epoch > 0:
             model, optimizer, epoch_idx, ckpt_dict = load_model(args.model_path, model, optimizer)
